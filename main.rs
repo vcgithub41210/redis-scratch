@@ -29,8 +29,6 @@ fn main() {
                         if bytes_count == 0{
                             break;
                         }
-                        //parse command
-                        let msg = String::from_utf8_lossy(&buf[..bytes_count]);
                         let tokens = token::parse_command(msg,bytes_count);
 
                         match tokens[0].as_str(){
