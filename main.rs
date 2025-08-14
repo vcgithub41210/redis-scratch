@@ -30,9 +30,8 @@ fn main() {
                             break;
                         }
                         //parse command
-                        let tokens = token::parse_command(&buf[..bytes_count],bytes_count);
-                        let arg = format!("+{}\r\n",tokens[0]);
-                        stream.write_all(arg.as_bytes()).unwrap();
+                        let msg = String::from_utf8_lossy(&buf[..bytes_count]);
+                        let tokens = token::parse_command(msg,bytes_count);
 
                         match tokens[0].as_str(){
                             "ECHO" => {
