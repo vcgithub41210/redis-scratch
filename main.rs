@@ -35,6 +35,20 @@ fn main() {
                             "ECHO" => {
                                 echo_contents(tokens[1].to_string(), &mut stream);
                             }
+                            "SET" => {
+                                let lock = map_clone.lock().unwrap();
+                                lock.insert(tokens[1].to_string(),tokens[2].to_string());
+                                stream.write_all(b"+OK\r\n").unwrap();
+                            }
+                            "GET" => {
+                                let lock = map_clone.lock().unwrap();
+                                if let Some(value) = lock.get(&tokes[1].to_string()){
+                                    let msg = format!("+{}\r\n",value);
+                                    stream.write_all(msh.as_bytes()).unwrap();
+                                }else {
+                                    stream.write_all(b"-ERR key not found\r\n").unwrap();
+                                }
+                            }
                             "PING" => {
                                 stream.write_all(b"+PONG\r\n").unwrap();
                             }
