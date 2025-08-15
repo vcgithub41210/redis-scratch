@@ -2,6 +2,7 @@
 use std::thread;
 use std::net::TcpListener;
 use std::io::{Read,Write};
+use std::sync::{Arc, Mutex};
 mod token;
 
 fn echo_contents(contents: String, stream: &mut std::net::TcpStream) {
@@ -10,15 +11,14 @@ fn echo_contents(contents: String, stream: &mut std::net::TcpStream) {
 }
 
 fn main() {
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    println!("Logs from your program will appear here!");
-
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
     let mut handles = Vec::new();
+    let map = Arc::new(Mutex::new(HashMap::new()));
 
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
+                let map_clone = Arc::clone(&map);
 
                 println!("accepted new connection");
                 let thread = thread::spawn(move ||{
@@ -35,8 +35,11 @@ fn main() {
                             "ECHO" => {
                                 echo_contents(tokens[1].to_string(), &mut stream);
                             }
-                            _ => {
+                            "PING" => {
                                 stream.write_all(b"+PONG\r\n").unwrap();
+                            }
+                            _ => {
+                                stream.write_all(b"-ERR unknown command\r\n").unwrap();
                             }
                         }
 
