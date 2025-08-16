@@ -4,11 +4,8 @@ use std::net::TcpListener;
 use std::io::{Read,Write};
 use std::sync::{Arc, Mutex};
 mod token;
+mod handle_client;
 
-fn echo_contents(contents: String, stream: &mut std::net::TcpStream) {
-    let response = format!("+{}\r\n", contents);
-    stream.write_all(response.as_bytes()).unwrap();
-}
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
@@ -17,49 +14,12 @@ fn main() {
 
     for stream in listener.incoming() {
         match stream {
-            Ok(mut stream) => {
+            Ok(stream) => {
                 let map_clone = Arc::clone(&map);
 
                 println!("accepted new connection");
                 let thread = thread::spawn(move ||{
-                    let mut buf = [0;512];
-                    loop {
-
-                        let bytes_count = stream.read(&mut buf).unwrap();
-                        if bytes_count == 0{
-                            break;
-                        }
-                        let tokens = token::parse_command(msg,bytes_count);
-
-                        match tokens[0].as_str(){
-                            "ECHO" => {
-                                echo_contents(tokens[1].to_string(), &mut stream);
-                            }
-                            "SET" => {
-                                let lock = map_clone.lock().unwrap();
-                                lock.insert(tokens[1].to_string(),tokens[2].to_string());
-                                stream.write_all(b"+OK\r\n").unwrap();
-                            }
-                            "GET" => {
-                                let lock = map_clone.lock().unwrap();
-                                if let Some(value) = lock.get(&tokes[1].to_string()){
-                                    let msg = format!("+{}\r\n",value);
-                                    stream.write_all(msh.as_bytes()).unwrap();
-                                }else {
-                                    stream.write_all(b"-ERR key not found\r\n").unwrap();
-                                }
-                            }
-                            "PING" => {
-                                stream.write_all(b"+PONG\r\n").unwrap();
-                            }
-                            _ => {
-                                stream.write_all(b"-ERR unknown command\r\n").unwrap();
-                            }
-                        }
-
-
-
-                    }
+                    handle_client::handle_client(stream, map_clone);
                 });
                 handles.push(thread);
 
