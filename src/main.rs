@@ -2,6 +2,7 @@
 use std::thread;
 use std::net::TcpListener;
 use std::io::{Read,Write};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 mod token;
 mod handle_client;
@@ -11,7 +12,7 @@ fn main() {
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
     let mut handles = Vec::new();
     let map = Arc::new(Mutex::new(HashMap::new()));
-
+    println!("did it work");
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
