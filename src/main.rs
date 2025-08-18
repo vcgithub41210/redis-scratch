@@ -7,7 +7,24 @@ use std::sync::{Arc, Mutex};
 mod token;
 mod handle_client;
 
-
+pub struct Value {
+    value : String,
+    expires: Option<u64>
+}
+impl Value {
+    pub fn new(value:String, expires:Option<u64>) ->Self{
+        Value {value, expires}
+    }
+    pub fn set_expires(&mut self, expires: Option<u64>){
+        self.expires = expires;
+    }
+    pub fn get_value(&self) -> &String {
+        &self.value
+    }
+    pub fn get_expires(&self) -> Option<u64> {
+        self.expires
+    }
+}
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
     let mut handles = Vec::new();
