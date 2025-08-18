@@ -3,6 +3,8 @@ use std::net::TcpStream;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::time::{SystemTime,UNIX_EPOCH};
+use crate::token;
 use crate::token;
 
 
@@ -13,8 +15,8 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Strin
         if bytes_count == 0 {
             break;
         }
-        let tokens = token::parse_command(&buf, bytes_count);
-        match tokens[0].as_str() {
+        let (command, args) = token::parse_command(&buf,bytes_count);
+        match command.as_str() {
             "ECHO" => {
                 let response = format!("+{}\r\n",tokens[1].to_string());
                 stream.write_all(response.as_bytes()).unwrap();
