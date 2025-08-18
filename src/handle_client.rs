@@ -23,14 +23,32 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Strin
             }
             "SET" => {
                 let mut map_lock = map.lock().unwrap();
-                map_lock.insert(tokens[1].to_string(), tokens[2].to_string());
+                let mut value = Value::new(args[1].to_string(),None);
+                if args.len() > 2 && args[2] == "px" {
+                    let expires = (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64) + args[3].parse::<u64>().unwrap();
+                    value.set_expires(Some(expires));
+                }
+                map_lock.insert(tokens[1].to_string(), value);
                 stream.write_all(b"+OK\r\n").unwrap();
             }
             "GET" => {
-                let map_lock = map.lock().unwrap();
-                if let Some(value) = map_lock.get(&tokens[1]) {
-                    let response = format!("+{}\r\n", value);
-                    stream.write_all(response.as_bytes()).unwrap();
+                let mut map_lock = map.lock().unwrap();
+                let search_key = args[0].to_string();
+                if let Some(value) = map_lock.get(&search_key) {
+                    if let Some(expires) = value.get_expires(){
+                        let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+                        if current_time > expires {
+                            stream.write_all(b"$-1\r\n").unwrap();
+                            map_lock.remove(&search_key);
+                        } else {
+                            let response = format!("+{}\r\n",value.get_value());
+                            stream.write_all(response.as_bytes()).unwrap();
+                        }
+                    }
+                    else {
+                        let response = format!("+{}\r\n",value.get_value());
+                        stream.write_all(response.as_bytes()).unwrap();
+                    }
                 } else {
                     stream.write_all(b"$-1\r\n").unwrap();
                 }
