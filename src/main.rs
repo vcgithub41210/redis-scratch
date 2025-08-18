@@ -37,9 +37,9 @@ impl Value {
             Value::List {expires: ref mut e, ..} => *e,
         }
     }
-    pub fn get_value(&self) -> &String {
+    pub fn get_value(&self) -> Option<&String> {
         match self {
-            Value::String {value, .. } => value,
+            Value::String {value, .. } => Some(value),
             _ => None,
         }
     }

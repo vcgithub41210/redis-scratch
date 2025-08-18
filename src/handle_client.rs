@@ -5,10 +5,17 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::time::{SystemTime,UNIX_EPOCH};
 use crate::token;
-use crate::token;
+use crate::Value;
 
-
-pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, String>>>) {
+pub fn format_and_send_response(stream: &mut TcpStream, value: Option<&String>){
+    if let Some(res) = value {
+        let formatted_response = format!("+{}\r\n",res);
+        stream.write_all(formatted_response.as_bytes()).unwrap();
+    } else {
+        stream.write_all(b"$-1\r\n").unwrap();
+    }
+}
+pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value>>>) {
     let mut buf = [0; 512];
     loop {
         let bytes_count = stream.read(&mut buf).unwrap();
@@ -18,11 +25,11 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Strin
         let (command, args) = token::parse_command(&buf,bytes_count);
         match command.as_str() {
             "ECHO" => {
-                let response = format!("+{}\r\n",tokens[1].to_string());
-                stream.write_all(response.as_bytes()).unwrap();
+                format_and_send_respones(&mut stream, Some(&args[0]));
             }
             "SET" => {
                 let mut map_lock = map.lock().unwrap();
+                let key = args[0].to_string();
                 let mut value = Value::new(args[1].to_string(),None);
                 if args.len() > 2 && args[2] == "px" {
                     let expires = (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64) + args[3].parse::<u64>().unwrap();
