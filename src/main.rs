@@ -7,24 +7,44 @@ use std::sync::{Arc, Mutex};
 mod token;
 mod handle_client;
 
-pub struct Value {
-    value : String,
-    expires: Option<u64>
+enum Value {
+
+    String {
+        value: String,
+        expires: Option<u64>,
+    },
+    List {
+        items: Vec<String>,
+        expires: Option<u64>,
+    }
 }
 impl Value {
-    pub fn new(value:String, expires:Option<u64>) ->Self{
-        Value {value, expires}
+    pub fn new_string(value: String, expires: Option<u64>) -> Self {
+        Value::String {value, expires }
     }
-    pub fn set_expires(&mut self, expires: Option<u64>){
-        self.expires = expires;
+    pub fn new_list(items: String, expires: Option<u64>) -> Self {
+        Value::List {items,expires}
     }
-    pub fn get_value(&self) -> &String {
-        &self.value
+    pub fn set_expires(&mut self, expires:Option<u64>) {
+        match self {
+            Value::String {expires: ref mut e, .. } => *e = expires,
+            Value::List {expires: ref mut e, .. } => *e = expires,
+        }
     }
     pub fn get_expires(&self) -> Option<u64> {
-        self.expires
+        match self {
+            Value::String {expires: ref mut e, .. } => *e,
+            Value::List {expires: ref mut e, ..} => *e,
+        }
+    }
+    pub fn get_value(&self) -> &String {
+        match self {
+            Value::String {value, .. } => value,
+            _ => None,
+        }
     }
 }
+
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
     let mut handles = Vec::new();
