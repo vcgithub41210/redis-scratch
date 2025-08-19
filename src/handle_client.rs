@@ -24,6 +24,25 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value
         }
         let (command, args) = token::parse_command(&buf,bytes_count);
         match command.as_str() {
+            "LRANGE" => {
+                let map_lock = map.lock().unwrap();
+                let search_key = args[0].to_string();
+                if let Some(value) = map_lock.get(&search_key) {
+                    let start,n,end;
+                    match value {
+                        Value::List {items, .. } => {
+                            n = items.len();
+                        }
+                    }
+                    if let Some(start) = args.get(1) {
+                        //logic
+                    } else {
+                        stream.write_all(b"(empty array)\r\n").unwrap();
+                    }
+                } else {
+                    stream.write_all(b"(empty array)\r\n").unwrap();
+                }
+            }
             "RPUSH" => {
                 let n = args.len();
                 let mut map_lock = map.lock().unwrap();
