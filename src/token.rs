@@ -1,6 +1,6 @@
 
-pub fn parse_command(msg: &[u8], _len: usize) -> (String,Vec<String>) {
-    let res = String::from_utf8_lossy(&msg[.._len]);
+pub fn parse_command(msg: &[u8]) -> (String,Vec<String>) {
+    let res = String::from_utf8_lossy(buf);
     let tokens = res.split("\r\n")
         .filter(|line| !line.is_empty() && !line.starts_with("*") && !line.starts_with("$"))
         .map(|line| line.to_string())

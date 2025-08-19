@@ -22,7 +22,7 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value
         if bytes_count == 0 {
             break;
         }
-        let (command, args) = token::parse_command(&buf,bytes_count);
+        let (command, args) = token::parse_command(&buf);
         match command.as_str() {
             "ECHO" => {
                 format_and_send_respones(&mut stream, Some(&args[0]));
@@ -30,12 +30,12 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value
             "SET" => {
                 let mut map_lock = map.lock().unwrap();
                 let key = args[0].to_string();
-                let mut value = Value::new(args[1].to_string(),None);
+                let mut value = Value::new_string(args[1].to_string(),None);
                 if args.len() > 2 && args[2] == "px" {
                     let expires = (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64) + args[3].parse::<u64>().unwrap();
                     value.set_expires(Some(expires));
                 }
-                map_lock.insert(tokens[1].to_string(), value);
+                map_lock.insert(key,value);
                 stream.write_all(b"+OK\r\n").unwrap();
             }
             "GET" => {
@@ -48,13 +48,11 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value
                             stream.write_all(b"$-1\r\n").unwrap();
                             map_lock.remove(&search_key);
                         } else {
-                            let response = format!("+{}\r\n",value.get_value());
-                            stream.write_all(response.as_bytes()).unwrap();
+                            format_and_send_response(&mut stream, value.get_value());
                         }
                     }
                     else {
-                        let response = format!("+{}\r\n",value.get_value());
-                        stream.write_all(response.as_bytes()).unwrap();
+                        format_and_send_response(&mut stream, value.get_value());
                     }
                 } else {
                     stream.write_all(b"$-1\r\n").unwrap();
