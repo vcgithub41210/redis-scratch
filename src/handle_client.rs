@@ -22,7 +22,7 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value
         if bytes_count == 0 {
             break;
         }
-        let (command, args) = token::parse_command(&buf);
+        let (command, args) = token::parse_command(&buf,bytes_count);
         match command.as_str() {
             "RPUSH" => {
                 let n = args.len();
@@ -30,9 +30,9 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value
                 let search_key = args[0].to_string();
                 if let Some(value) = map_lock.get_mut(&search_key) {
                     match value {
-                        Value::List {items, expires} => {
+                        Value::List {items, .. } => {
                             for i in 1..n {
-                                items.push(args[1].to_string());
+                                items.push(args[i].to_string());
                             }
                             let len = items.len();
                             stream.write_all(format!(":{}\r\n",len).as_bytes()).unwrap();
@@ -43,15 +43,18 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value
                     }
                 } else {
                     let mut value = Value::new_list(Vec::new(),None);
-                    match value {
-                        Value::List {items,expires} => {
+                    match &mut value {
+                        Value::List {items, .. } => {
                             for i in 1..n {
                                 items.push(args[i].to_string());
                             }
                         }
+                        _ => {
+                            stream.write_all(b"-ERR wrong type\r\n").unwrap();
+                        }
                     }
                     map_lock.insert(search_key, value);
-                    stream.write_all(b":{}\r\n",n-1).unwrap();
+                    stream.write_all(format!(":{}\r\n",n-1).as_bytes()).unwrap();
                 }
             }
             "ECHO" => {
