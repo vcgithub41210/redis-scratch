@@ -18,6 +18,23 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value
         }
         let (command, args) = token::parse_command(&buf,bytes_count);
         match command.as_str() {
+            "LLEN" => {
+                let map_lock = map.lock().unwrap();
+                let key = args[0].to_string();
+                let mut content = ResponseContent::Integer(0);
+                if let Some(value) = map_lock.get(&key) {
+                    match value {
+                        Value::List {items, .. } => {
+                            content = ResponseContent::Integer(items.len());
+                        }
+                        _ => {
+                            stream.write_all(b"-ERR wrong type\r\n").unwrap();
+                        }
+                    }
+                }
+                let formatted_response = encoder::encoder_response(content);
+                stream.write_all(formatted_response.as_bytes()).unwrap();
+            }
             "LRANGE" => {
                 let n = args.len();
                 let map_lock = map.lock().unwrap();
@@ -67,6 +84,42 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value
                 }
                 let formatted_response = encoder::encode_response(content);
                 stream.write_all(formatted_response.as_bytes()).unwrap();
+            }
+            "LPUSH" => {
+                let n = args.len();
+                let mut map_lock = map.lock().unwrap();
+                let search_key = args[0].to_string();
+                if let Some(value) = map_lock.get_mut(&search_key) {
+                    match value {
+                        Value::List {items,..} => {
+                            for i in 1..n {
+                                items.insert(0,args[i].to_string());
+                            }
+                            let content = ResponseContent::Integer(items.len());
+                            let formatted_response = encoder::encode_response(content);
+                            stream.write_all(formatted_response.as_bytes()).unwrap();
+                        }
+                        _ => {
+                            stream.write_all(b"-ERR wrong type\r\n").unwrap();
+                        }
+                    }
+                } else {
+                    let mut value = Value::new_list(Vec::new(),None);
+                    match &mut value {
+                        Value::List {items,..} => {
+                            for i in 1..n {
+                                items.insert(0,args[i].to_string());
+                            }
+                        }
+                        _ => {
+                            stream.write_all(b"-ERR wrong type\r\n").unwrap();
+                        }
+                    }
+                    let content = ResponseContent::Integer(n-1);
+                    map_lock.insert(search_key,value);
+                    let formatted_response = encoder::encode_response(content);
+                    stream.write_all(formatted_response.as_bytes()).unwrap();
+                }
             }
             "RPUSH" => {
                 let n = args.len();
