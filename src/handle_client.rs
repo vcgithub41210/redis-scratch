@@ -18,6 +18,44 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value
         }
         let (command, args) = token::parse_command(&buf,bytes_count);
         match command.as_str() {
+            "LPOP" => {
+                let mut map_lock = map.lock().unwrap();
+                let key = args[0].to_string();
+                let mut content = ResponseContent::BulkString("".to_string());
+                if let Some(value) = map_lock.get_mut(&key) {
+                    let mut count = 1;
+                    if let Some(arg) = args.get(1) {
+                        count = arg.parse().unwrap_or(1);
+                    }
+
+                    match value {
+                        Value::List {items, ..} => {
+
+                            let mut vector = vec![];
+                            while count > 0 && !items.is_empty() {
+                                let item = items.remove(0);
+                                vector.push(ResponseContent::BulkString(item));
+                                count -= 1;
+                            }
+                            if !vector.is_empty() {
+                                if vector.len() == 1{
+                                    match &vector[0] {
+                                        ResponseContent::BulkString(bulkstr) => content = ResponseContent::BulkString(bulkstr.to_string()),
+                                        _ => {}
+                                    }
+                                } else {
+                                    content = ResponseContent::Array(vector);
+                                }
+                            }
+                        }
+                        - => {
+                            stream.write_all(b"-ERR wrong type\r\n").unwrap();
+                        }
+                    }
+                }
+                let formatted_response = encoder::encode_response(content);
+                stream.write_all(formatted_response.as_bytes()).unwrap();
+            }
             "LLEN" => {
                 let map_lock = map.lock().unwrap();
                 let key = args[0].to_string();
