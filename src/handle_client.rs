@@ -6,15 +6,9 @@ use std::collections::HashMap;
 use std::time::{SystemTime,UNIX_EPOCH};
 use crate::token;
 use crate::Value;
+use crate::ResponseContent;
+use crate::encoder;
 
-pub fn format_and_send_response(stream: &mut TcpStream, value: Option<&String>){
-    if let Some(res) = value {
-        let formatted_response = format!("+{}\r\n",res);
-        stream.write_all(formatted_response.as_bytes()).unwrap();
-    } else {
-        stream.write_all(b"$-1\r\n").unwrap();
-    }
-}
 pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value>>>) {
     let mut buf = [0; 512];
     loop {
@@ -25,23 +19,54 @@ pub fn handle_client(mut stream: TcpStream, map: Arc<Mutex<HashMap<String, Value
         let (command, args) = token::parse_command(&buf,bytes_count);
         match command.as_str() {
             "LRANGE" => {
+                let n = args.len();
                 let map_lock = map.lock().unwrap();
+
+                if n < 3 {
+                    stream.write_all(b"-ERR wrong number of arguements for 'lrange' command\r\n").unwrap();
+                    continue;
+                }
                 let search_key = args[0].to_string();
+                let mut content = ResponseContent::Array(vec![]);
+
                 if let Some(value) = map_lock.get(&search_key) {
-                    let start,n,end;
+                    let mut start: isize = args[1].parse().unwrap_or(0);
+                    let mut end: isize = args[2].parse().unwrap_or(0);
+
                     match value {
-                        Value::List {items, .. } => {
-                            n = items.len();
+                        Value::List {items, ..} => {
+                            let len = items.len() as isize;
+                            if start < 0 {
+                                start += len;
+                                if start < 0 {
+                                    start = 0;
+                                }
+                            }
+                            if end < 0 {
+                                end += len;
+                                if end < 0 {
+                                    end = 0;
+                                }
+                            }
+                            if end >= len {
+                                end = len -1;
+                            }
+                            if start <= end && start < len && start >= 0 {
+                                content = ResponseContent::Array(
+                                    items.iter()
+                                    .skip(start as usize)
+                                    .take((end - start+1) as usize)
+                                    .map(|item| ResponseContent::BulkString(item.clone()))
+                                    .collect()
+                                    );
+                            }
+                        }
+                        _ => {
                         }
                     }
-                    if let Some(start) = args.get(1) {
-                        //logic
-                    } else {
-                        stream.write_all(b"(empty array)\r\n").unwrap();
-                    }
-                } else {
-                    stream.write_all(b"(empty array)\r\n").unwrap();
                 }
+                let formatted_response = encoder::encode_response(content);
+                stream.write_all(formatted_response.as_bytes()).unwrap();
             }
             "RPUSH" => {
                 let n = args.len();
