@@ -6,6 +6,15 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 mod token;
 mod handle_client;
+mod encoder;
+
+enum ResponseContent {
+    Integer(usize),
+    BulkString(String),
+    Array(Vec<ResponseContent>),
+    SimpleString(String),
+}
+
 
 enum Value {
 
